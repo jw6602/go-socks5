@@ -17,6 +17,7 @@ const (
 	ipv4Address      = uint8(1)
 	fqdnAddress      = uint8(3)
 	ipv6Address      = uint8(4)
+	accessDenied     = uint8(91)
 )
 
 const (
@@ -33,6 +34,7 @@ const (
 
 var (
 	unrecognizedAddrType = fmt.Errorf("Unrecognized address type")
+	AccessDenied         = fmt.Errorf("Access denied")
 )
 
 // AddressRewriter is used to rewrite a destination transparently
@@ -134,6 +136,17 @@ func (s *Server) handleRequest(req *Request, conn conn) error {
 			dest.IP = addr
 		}
 	*/
+
+	// Check Blacklist
+	for _, host := range s.config.Blacklist {
+		if strings.Contains(req.DestAddr.Address(), host) {
+			if err := sendReply(conn, accessDenied, nil); err != nil {
+				return fmt.Errorf("Failed to send reply: %v", err)
+			}
+			return AccessDenied
+		}
+	}
+
 	// Apply any address rewrites
 	req.realDestAddr = req.DestAddr
 	if s.config.Rewriter != nil {
