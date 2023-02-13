@@ -41,6 +41,8 @@ const (
 	AddressDomainName = uint8(3)
 	// AddressIPv6 IP V6 address: X'04'
 	AddressIPv6 = uint8(4)
+
+	AccessDenied = uint8(91)
 )
 
 /******************************************************
@@ -160,17 +162,29 @@ func (s *Server) handleRequest(req *Request, conn net.Conn) error {
 	ctx := context.Background()
 
 	// Resolve the address if we have a FQDN
-	dest := req.DestAddr
-	if dest.FQDN != "" {
-		_ctx, addr, err := s.config.Resolver.Resolve(ctx, dest.FQDN)
-		if err != nil {
-			if err := sendReply(conn, ReplyHostUnreachable, nil); err != nil {
-				return fmt.Errorf("failed to send reply: %v", err)
+	/*
+		dest := req.DestAddr
+		if dest.FQDN != "" {
+			_ctx, addr, err := s.config.Resolver.Resolve(ctx, dest.FQDN)
+			if err != nil {
+				if err := sendReply(conn, ReplyHostUnreachable, nil); err != nil {
+					return fmt.Errorf("failed to send reply: %v", err)
+				}
+				return fmt.Errorf("failed to resolve destination '%v': %v", dest.FQDN, err)
 			}
-			return fmt.Errorf("failed to resolve destination '%v': %v", dest.FQDN, err)
+			ctx = _ctx
+			dest.IP = addr
 		}
-		ctx = _ctx
-		dest.IP = addr
+	*/
+
+	// Check Blacklist
+	for _, host := range s.config.Blacklist {
+		if strings.Contains(req.DestAddr.Address(), host) {
+			if err := sendReply(conn, AccessDenied, nil); err != nil {
+				return fmt.Errorf("Failed to send reply: %v", err)
+			}
+			return fmt.Errorf("Access denied")
+		}
 	}
 
 	// Apply any address rewrites

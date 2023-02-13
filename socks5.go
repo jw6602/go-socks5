@@ -55,6 +55,8 @@ type Config struct {
 
 	// Optional function for dialing out
 	Dial func(ctx context.Context, network, addr string) (net.Conn, error)
+
+	Blacklist []string
 }
 
 // Server is responsible for accepting connections and handling
